@@ -1,3 +1,32 @@
+Metadata-Version: 2.1
+Name: llm-model-gateway
+Version: 0.1.0
+Summary: OpenAI-compatible API server for simonw's llm cli
+Author: Thomas Hughes
+License: Apache-2.0
+Project-URL: Homepage, https://github.com/irthomasthomas/llm-api-server
+Project-URL: Changelog, https://github.com/irthomasthomas/llm-api-server/releases
+Project-URL: Issues, https://github.com/irthomasthomas/llm-api-server/issues
+Classifier: Development Status :: 3 - Alpha
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Description-Content-Type: text/markdown
+Requires-Dist: llm
+Requires-Dist: fastapi>=0.100.0
+Requires-Dist: uvicorn[standard]>=0.22.0
+Requires-Dist: sqlite-utils>=3.35
+Requires-Dist: httpx>=0.24.1
+Requires-Dist: click>=8.0.0
+Requires-Dist: pydantic>=2.0.0
+Provides-Extra: test
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: pytest-asyncio; extra == "test"
+Requires-Dist: pytest-cov; extra == "test"
+Requires-Dist: httpx; extra == "test"
+
 # 🚀 LLM Model Gateway
 
 [![PyPI](https://img.shields.io/pypi/v/llm-model-gateway.svg)](https://pypi.org/project/llm-model-gateway/)
