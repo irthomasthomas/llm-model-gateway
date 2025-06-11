@@ -25,7 +25,7 @@ def user_dir() -> pathlib.Path:
     return path
 
 # Configure logging
-def setup_logging(level=logging.INFO):
+def setup_logging(level=logging.DEBUG):
     logging.basicConfig(
         level=level,
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
@@ -77,6 +77,7 @@ async def chat_completions(request: dict):
     start_time = time.time()
     model_id = request.get("model")
     messages = request.get("messages", [])
+    logger.debug(f"Received messages payload: {messages}")
     stream_flag = request.get("stream", False)
     # --- Start of fix ---
     system_prompt = None
@@ -219,5 +220,5 @@ def register_commands(cli):
             host=host,
             port=port,
             reload=reload,
-            log_level="info"
+            log_level="debug"
         )
