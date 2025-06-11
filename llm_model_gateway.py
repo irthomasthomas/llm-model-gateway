@@ -77,34 +77,28 @@ async def chat_completions(request: dict):
     start_time = time.time()
     model_id = request.get("model")
     messages = request.get("messages", [])
-    logger.debug(f"Received messages payload: {messages}")
     stream_flag = request.get("stream", False)
-    # --- Start of fix ---
+    
+    logger.debug(f"Gateway request for model '{model_id}' with stream: {stream_flag}")
+    logger.debug(f"Incoming messages: {json.dumps(messages, indent=2)}")
+
+    # Extract system prompt and user prompt from messages
     system_prompt = None
-    conversation_parts = []
+    user_prompt = ""
     
-    # Reconstruct the conversation from the messages
+    # Find system prompt (if any)
     for msg in messages:
-        role = msg.get("role", "user")
-        content = msg.get("content", "")
-        if content:
-            if role == "system":
-                system_prompt = content
-            else:
-                # Use a simple format that shows the role of who was speaking
-                conversation_parts.append(f"{role.capitalize()}: {content}")
+        if msg.get("role") == "system":
+            system_prompt = msg.get("content")
+            break
     
-    # The final prompt is the full conversation history
-    prompt_content = "\n\n".join(conversation_parts) # I added a new line for better seperation
-    
-    # Original system prompt logic is now handled above, this can be removed.
-    # system_prompt = None
-    # for msg in messages:
-    #     if msg["role"] == "system":
-    #         system_prompt = msg["content"]
-    #         break
-    # --- End of fix ---
-    # Only pass known valid options to avoid validation errors
+    # Get the last user message as the current prompt
+    for msg in reversed(messages):
+        if msg.get("role") == "user":
+            user_prompt = msg.get("content", "")
+            break
+
+    # Filter options to prevent validation errors
     valid_options = [
         'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
         'stop', 'n', 'logit_bias', 'user', 'seed', 'tools', 'tool_choice', 'response_format'
@@ -119,35 +113,68 @@ async def chat_completions(request: dict):
     try:
         model = llm.get_model(model_id)
         
-        # Create prompt and response objects
-        prompt_obj = llm.Prompt(
-            prompt_content,
-            model=model,
-            system=system_prompt,
-            options=model.Options(**options)
-        )
-        
+        # Create conversation if we have multiple messages (indicating history)
         conversation = None
-        if not stream_flag:  # Only create conversation if not streaming
+        if len(messages) > 1:
+            # Create a conversation to maintain context
             conversation = llm.Conversation(model=model)
+            
+            # Add previous exchanges to conversation history
+            for i in range(0, len(messages) - 1, 2):  # Process in pairs
+                if i < len(messages) - 1:
+                    user_msg = messages[i] if messages[i].get("role") == "user" else None
+                    assistant_msg = messages[i + 1] if i + 1 < len(messages) and messages[i + 1].get("role") == "assistant" else None
+                    
+                    if user_msg:
+                        # Add this exchange to conversation history
+                        prompt_content = user_msg.get("content", "")
+                        response_content = assistant_msg.get("content", "") if assistant_msg else ""
+                        
+                        # Create and add the prompt-response pair
+                        prompt_obj = llm.Prompt(prompt_content, model=model, system=system_prompt)
+                        response_obj = llm.Response(prompt_obj, model=model, conversation=conversation)
+                        response_obj._set_content(response_content)
+                        conversation.responses.append(response_obj)
 
-        response_obj = llm.Response(
-            prompt_obj,
-            model=model,
-            stream=stream_flag,
-            conversation=conversation
-        )
-        response_obj._prompt_json = json.dumps(messages)  # Store original messages
-
-        # Log the prompt details
-        response_obj.log_to_db(db)
+        # Now prompt with the current user message
+        if conversation:
+            response = conversation.prompt(user_prompt, system=system_prompt, **options)
+        else:
+            # No conversation history, use model directly
+            response = model.prompt(user_prompt, system=system_prompt, **options)
 
         if stream_flag:
-            return StreamingResponse(
-                stream_response(response_obj),
-                media_type="text/event-stream"
-            )
+            async def stream_response():
+                for chunk in response:
+                    if chunk:
+                        yield f"data: {json.dumps({'choices': [{'delta': {'content': chunk}}]})}\n\n"
+                yield "data: [DONE]\n\n"
 
+            return StreamingResponse(stream_response(), media_type="text/event-stream")
+        else:
+            return {
+                "id": getattr(response, 'id', str(uuid.uuid4())),
+                "object": "chat.completion",
+                "created": int(time.time()),
+                "model": model_id,
+                "choices": [{
+                    "index": 0,
+                    "message": {
+                        "role": "assistant",
+                        "content": response.text(),
+                    },
+                    "finish_reason": "stop"
+                }],
+                "usage": {
+                    "prompt_tokens": getattr(response, 'prompt_tokens', 0),
+                    "completion_tokens": getattr(response, 'response_tokens', 0),
+                    "total_tokens": getattr(response, 'prompt_tokens', 0) + getattr(response, 'response_tokens', 0)
+                }
+            }
+
+    except Exception as e:
+        logger.error(f"Error processing request: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=str(e))
         # For non-streaming, get full response
         full_response_text = response_obj.text()
         duration = time.time() - start_time
