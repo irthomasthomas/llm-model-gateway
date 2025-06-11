@@ -78,15 +78,31 @@ async def chat_completions(request: dict):
     model_id = request.get("model")
     messages = request.get("messages", [])
     stream_flag = request.get("stream", False)
-    prompt_content = messages[-1].get("content") if messages else None
-
-    # Extract system prompt if present
+    # --- Start of fix ---
     system_prompt = None
+    conversation_parts = []
+    
+    # Reconstruct the conversation from the messages
     for msg in messages:
-        if msg["role"] == "system":
-            system_prompt = msg["content"]
-            break
-
+        role = msg.get("role", "user")
+        content = msg.get("content", "")
+        if content:
+            if role == "system":
+                system_prompt = content
+            else:
+                # Use a simple format that shows the role of who was speaking
+                conversation_parts.append(f"{role.capitalize()}: {content}")
+    
+    # The final prompt is the full conversation history
+    prompt_content = "\n\n".join(conversation_parts) # I added a new line for better seperation
+    
+    # Original system prompt logic is now handled above, this can be removed.
+    # system_prompt = None
+    # for msg in messages:
+    #     if msg["role"] == "system":
+    #         system_prompt = msg["content"]
+    #         break
+    # --- End of fix ---
     options = {k: v for k, v in request.items() if k not in ["model", "messages", "stream"]}
 
     # Get database connection for logging
