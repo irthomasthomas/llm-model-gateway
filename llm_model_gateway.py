@@ -103,7 +103,13 @@ async def chat_completions(request: dict):
     #         system_prompt = msg["content"]
     #         break
     # --- End of fix ---
-    options = {k: v for k, v in request.items() if k not in ["model", "messages", "stream"]}
+    # Only pass known valid options to avoid validation errors
+    valid_options = [
+        'temperature', 'max_tokens', 'top_p', 'frequency_penalty', 'presence_penalty',
+        'stop', 'n', 'logit_bias', 'user', 'seed', 'tools', 'tool_choice', 'response_format'
+    ]
+    options = {k: v for k, v in request.items() 
+               if k not in ["model", "messages", "stream"] and k in valid_options}
 
     # Get database connection for logging
     db = sqlite_utils.Database(logs_db_path())
