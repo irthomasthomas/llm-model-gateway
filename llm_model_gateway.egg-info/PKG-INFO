@@ -1,15 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: llm-model-gateway
 Version: 0.1.0
 Summary: OpenAI-compatible API server for simonw's llm cli
 Author: Thomas Hughes
-License: Apache-2.0
 Project-URL: Homepage, https://github.com/irthomasthomas/llm-api-server
 Project-URL: Changelog, https://github.com/irthomasthomas/llm-api-server/releases
 Project-URL: Issues, https://github.com/irthomasthomas/llm-api-server/issues
 Classifier: Development Status :: 3 - Alpha
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
